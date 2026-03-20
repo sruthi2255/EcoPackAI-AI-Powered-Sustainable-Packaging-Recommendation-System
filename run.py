@@ -1,21 +1,9 @@
-"""
-run.py — Start the entire EcoPackAI project with one command.
-
-Usage:
-    python run.py
-
-This script:
-1. Loads your .env file (DATABASE_URL)
-2. Tests the PostgreSQL connection
-3. Creates all database tables automatically
-4. Starts the FastAPI server on http://localhost:8000
-"""
 
 import os
 import sys
 from dotenv import load_dotenv
 
-# ── Step 1: Load environment variables from .env ─────────────────────────────
+# ── Step 1: Load environment variables from .env 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -25,9 +13,9 @@ if not DATABASE_URL:
     sys.exit(1)
 
 print("✓ .env loaded")
-print(f"✓ Database: {DATABASE_URL.split('@')[-1]}")  # print only host part, hide password
+print(f"✓ Database: {DATABASE_URL.split('@')[-1]}") 
 
-# ── Step 2: Test PostgreSQL connection ────────────────────────────────────────
+# ── Step 2: Test PostgreSQL connection 
 try:
     from sqlalchemy import create_engine, text
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -43,7 +31,7 @@ except Exception as e:
     print("  3. The database 'ecopackai_db' exists in pgAdmin")
     sys.exit(1)
 
-# ── Step 3: Create all tables ─────────────────────────────────────────────────
+# ── Step 3: Create all tables 
 try:
     from app.database import Base, engine as app_engine
     from app.models import UserQuery, RecommendationResult
@@ -53,7 +41,7 @@ except Exception as e:
     print(f"ERROR creating tables: {e}")
     sys.exit(1)
 
-# ── Step 4: Start FastAPI server ──────────────────────────────────────────────
+# ── Step 4: Start FastAPI server 
 print("\n" + "="*50)
 print("  EcoPackAI is starting...")
 print("="*50)

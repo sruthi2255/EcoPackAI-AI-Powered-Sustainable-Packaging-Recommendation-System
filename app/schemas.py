@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
-USD_TO_INR = 83.0  # Conversion rate: 1 USD = ₹83
+USD_TO_INR = 83.0  
 
 
 class QueryInput(BaseModel):

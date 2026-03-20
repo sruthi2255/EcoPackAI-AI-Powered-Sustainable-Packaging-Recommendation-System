@@ -6,11 +6,11 @@ from .schemas import QueryInput, RecommendationOut, RecommendationPayload
 USD_TO_INR = 83.0   # 1 USD = ₹83  (update this as needed)
 
 # ─── Uncomment when your .pkl files are ready ────────────────────────────────
-# import joblib
-# MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
-# rf_model      = joblib.load(os.path.join(MODEL_DIR, "rf_cost_model.pkl"))
-# xgb_model     = joblib.load(os.path.join(MODEL_DIR, "xgb_co2_model.pkl"))
-# scaler        = joblib.load(os.path.join(MODEL_DIR, "scaler.pkl"))
+ import joblib
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
+rf_model      = joblib.load(os.path.join(MODEL_DIR, "rf_cost_model.pkl"))
+xgb_model     = joblib.load(os.path.join(MODEL_DIR, "xgb_co2_model.pkl"))
+scaler        = joblib.load(os.path.join(MODEL_DIR, "scaler.pkl"))
 
 # ─── Material pool ───────────────────────────────────────────────────────────
 MATERIALS = [
