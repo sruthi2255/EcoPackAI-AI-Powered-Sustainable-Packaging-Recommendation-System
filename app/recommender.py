@@ -1,126 +1,242 @@
+"""
+EcoPackAI – Recommender Engine
+Category-specific material pools, no cost/fragility/moisture outputs.
+"""
 import os
 import numpy as np
-from .schemas import QueryInput, RecommendationOut, RecommendationPayload
-
-# ─── Currency conversion ──────────────────────────────────────────────────────
-USD_TO_INR = 83.0   # 1 USD = ₹83  (update this as needed)
-
-# ─── Uncomment when your .pkl files are ready ────────────────────────────────
- import joblib
+from typing import List, Dict
+from app.schemas import QueryInput, RecommendationItem
+import joblib
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
-rf_model      = joblib.load(os.path.join(MODEL_DIR, "rf_cost_model.pkl"))
-xgb_model     = joblib.load(os.path.join(MODEL_DIR, "xgb_co2_model.pkl"))
-scaler        = joblib.load(os.path.join(MODEL_DIR, "scaler.pkl"))
 
-# ─── Material pool ───────────────────────────────────────────────────────────
-MATERIALS = [
-    {"material_type": "Heavy Duty Corrugated",   "base_cost_usd": 2.80, "co2": 0.95, "bio": 88, "rec": 94},
-    {"material_type": "Biodegradable Foam",       "base_cost_usd": 3.20, "co2": 0.60, "bio": 95, "rec": 80},
-    {"material_type": "Recycled Kraft Paper",     "base_cost_usd": 1.90, "co2": 0.45, "bio": 98, "rec": 99},
-    {"material_type": "Mushroom Packaging",       "base_cost_usd": 4.10, "co2": 0.30, "bio": 100,"rec": 85},
-    {"material_type": "Plant-Based PLA Film",     "base_cost_usd": 2.50, "co2": 0.55, "bio": 92, "rec": 78},
-    {"material_type": "Recycled Plastic (rPET)",  "base_cost_usd": 1.60, "co2": 1.10, "bio": 40, "rec": 95},
-    {"material_type": "Honeycomb Paperboard",     "base_cost_usd": 2.20, "co2": 0.70, "bio": 90, "rec": 96},
-    {"material_type": "Air Pillow (recycled PE)", "base_cost_usd": 1.30, "co2": 1.20, "bio": 30, "rec": 88},
-]
+# ──────────────────────────────────────────────
+# CATEGORY-SPECIFIC MATERIAL POOLS
+# Each material: co2 (kg), bio (0-100), rec (0-100), weight_limit_kg
+# ──────────────────────────────────────────────
+CATEGORY_MATERIALS: Dict[str, List[Dict]] = {
+    "Electronics": [
+        {"name": "Molded Pulp Tray",        "co2": 0.35, "bio": 85, "rec": 78, "weight_limit": 10},
+        {"name": "EPE Foam Insert",          "co2": 1.20, "bio": 10, "rec": 30, "weight_limit": 50},
+        {"name": "Corrugated Double-Wall",   "co2": 0.45, "bio": 80, "rec": 90, "weight_limit": 25},
+        {"name": "Air Column Cushioning",    "co2": 0.55, "bio": 20, "rec": 60, "weight_limit": 15},
+        {"name": "Honeycomb Cardboard",      "co2": 0.30, "bio": 88, "rec": 92, "weight_limit": 20},
+        {"name": "Anti-Static Bubble Wrap",  "co2": 0.90, "bio": 15, "rec": 40, "weight_limit": 30},
+        {"name": "rPET Blister Pack",        "co2": 0.60, "bio": 25, "rec": 80, "weight_limit": 5},
+    ],
+    "Food & Beverage": [
+        {"name": "Kraft Paper Wrap",         "co2": 0.20, "bio": 95, "rec": 85, "weight_limit": 5},
+        {"name": "Biodegradable PLA Film",   "co2": 0.40, "bio": 90, "rec": 50, "weight_limit": 3},
+        {"name": "Sugarcane Bagasse Box",    "co2": 0.15, "bio": 98, "rec": 70, "weight_limit": 8},
+        {"name": "Beeswax-Coated Paper",     "co2": 0.18, "bio": 92, "rec": 55, "weight_limit": 2},
+        {"name": "Mushroom Packaging",       "co2": 0.10, "bio": 99, "rec": 60, "weight_limit": 4},
+        {"name": "Corrugated Tray Insert",   "co2": 0.38, "bio": 82, "rec": 88, "weight_limit": 10},
+        {"name": "Recycled Paperboard",      "co2": 0.28, "bio": 78, "rec": 92, "weight_limit": 6},
+    ],
+    "Clothing & Apparel": [
+        {"name": "Recycled Tissue Paper",    "co2": 0.12, "bio": 90, "rec": 88, "weight_limit": 2},
+        {"name": "Cotton Muslin Bag",        "co2": 0.22, "bio": 95, "rec": 70, "weight_limit": 3},
+        {"name": "Kraft Mailer Box",         "co2": 0.30, "bio": 85, "rec": 90, "weight_limit": 5},
+        {"name": "rPET Poly Mailer",         "co2": 0.50, "bio": 20, "rec": 75, "weight_limit": 4},
+        {"name": "Seaweed Foam Sheet",       "co2": 0.08, "bio": 99, "rec": 65, "weight_limit": 1},
+        {"name": "Compostable Mailer",       "co2": 0.18, "bio": 96, "rec": 55, "weight_limit": 3},
+        {"name": "Recycled Cardboard Box",   "co2": 0.35, "bio": 80, "rec": 92, "weight_limit": 8},
+    ],
+    "Furniture & Wood": [
+        {"name": "Corrugated Double-Wall",   "co2": 0.45, "bio": 80, "rec": 90, "weight_limit": 80},
+        {"name": "Honeycomb Kraft Board",    "co2": 0.30, "bio": 88, "rec": 92, "weight_limit": 60},
+        {"name": "Stretch Film (rPET)",      "co2": 0.65, "bio": 20, "rec": 70, "weight_limit": 200},
+        {"name": "Foam Edge Protectors",     "co2": 1.00, "bio": 15, "rec": 35, "weight_limit": 100},
+        {"name": "Recycled Cardboard Shell", "co2": 0.40, "bio": 82, "rec": 90, "weight_limit": 50},
+        {"name": "Wooden Crate",             "co2": 0.55, "bio": 70, "rec": 60, "weight_limit": 300},
+        {"name": "Biodeg. Kraft Corner Pad", "co2": 0.22, "bio": 90, "rec": 85, "weight_limit": 40},
+    ],
+    "Cosmetics & Beauty": [
+        {"name": "Recycled Glass Wrap",      "co2": 0.28, "bio": 75, "rec": 90, "weight_limit": 3},
+        {"name": "Seed Paper Filler",        "co2": 0.10, "bio": 99, "rec": 80, "weight_limit": 1},
+        {"name": "Kraft Tissue Paper",       "co2": 0.15, "bio": 95, "rec": 88, "weight_limit": 2},
+        {"name": "Biodeg. Foam Cushion",     "co2": 0.35, "bio": 88, "rec": 55, "weight_limit": 5},
+        {"name": "Compostable Shrink Wrap",  "co2": 0.20, "bio": 93, "rec": 50, "weight_limit": 2},
+        {"name": "Molded Pulp Insert",       "co2": 0.32, "bio": 87, "rec": 80, "weight_limit": 4},
+        {"name": "rPET Clamshell Box",       "co2": 0.55, "bio": 22, "rec": 78, "weight_limit": 3},
+    ],
+    "Pharmaceuticals": [
+        {"name": "Blister PVC/Alu Pack",     "co2": 0.80, "bio": 10, "rec": 40, "weight_limit": 1},
+        {"name": "Recycled Paperboard Box",  "co2": 0.28, "bio": 82, "rec": 92, "weight_limit": 3},
+        {"name": "Biodeg. Cold Pack",        "co2": 0.45, "bio": 80, "rec": 60, "weight_limit": 5},
+        {"name": "Kraft Padded Mailer",      "co2": 0.25, "bio": 88, "rec": 85, "weight_limit": 4},
+        {"name": "Insulated Pulp Box",       "co2": 0.38, "bio": 85, "rec": 78, "weight_limit": 6},
+        {"name": "Compostable Bubble Mailer","co2": 0.30, "bio": 92, "rec": 58, "weight_limit": 3},
+        {"name": "HDPE Vial Tray",           "co2": 0.70, "bio": 12, "rec": 65, "weight_limit": 2},
+    ],
+    "Toys & Games": [
+        {"name": "Molded Pulp Tray",         "co2": 0.35, "bio": 85, "rec": 78, "weight_limit": 5},
+        {"name": "Corrugated Display Box",   "co2": 0.42, "bio": 82, "rec": 90, "weight_limit": 15},
+        {"name": "Recycled Cardboard Box",   "co2": 0.38, "bio": 80, "rec": 92, "weight_limit": 10},
+        {"name": "Honeycomb Insert",         "co2": 0.28, "bio": 88, "rec": 92, "weight_limit": 8},
+        {"name": "Biodeg. Foam Sheet",       "co2": 0.50, "bio": 75, "rec": 50, "weight_limit": 6},
+        {"name": "Mushroom Packaging",       "co2": 0.10, "bio": 99, "rec": 60, "weight_limit": 4},
+        {"name": "rPET Poly Bag",            "co2": 0.55, "bio": 18, "rec": 72, "weight_limit": 3},
+    ],
+    "Industrial & Hardware": [
+        {"name": "Heavy-Duty Corrugated",    "co2": 0.55, "bio": 78, "rec": 88, "weight_limit": 100},
+        {"name": "Wooden Pallet + Film",     "co2": 0.80, "bio": 65, "rec": 55, "weight_limit": 500},
+        {"name": "VCI Poly Bag",             "co2": 0.70, "bio": 12, "rec": 50, "weight_limit": 50},
+        {"name": "Foam Corner Protectors",   "co2": 1.10, "bio": 10, "rec": 30, "weight_limit": 80},
+        {"name": "Stretch Wrap (rPET)",      "co2": 0.65, "bio": 18, "rec": 70, "weight_limit": 300},
+        {"name": "Steel Strapping Band",     "co2": 1.50, "bio": 5,  "rec": 90, "weight_limit": 1000},
+        {"name": "Honeycomb Pallet Wrap",    "co2": 0.35, "bio": 85, "rec": 90, "weight_limit": 120},
+    ],
+    "Books & Stationery": [
+        {"name": "Kraft Mailer",             "co2": 0.18, "bio": 92, "rec": 90, "weight_limit": 3},
+        {"name": "Recycled Bubble Mailer",   "co2": 0.30, "bio": 40, "rec": 65, "weight_limit": 2},
+        {"name": "Corrugated Book Wrap",     "co2": 0.35, "bio": 82, "rec": 90, "weight_limit": 5},
+        {"name": "Compostable Poly Mailer",  "co2": 0.20, "bio": 94, "rec": 55, "weight_limit": 2},
+        {"name": "Seed Paper Wrapper",       "co2": 0.10, "bio": 99, "rec": 80, "weight_limit": 1},
+        {"name": "Recycled Cardboard Box",   "co2": 0.38, "bio": 80, "rec": 92, "weight_limit": 8},
+        {"name": "Honeycomb Paper Wrap",     "co2": 0.22, "bio": 90, "rec": 92, "weight_limit": 4},
+    ],
+    # Default fallback for any other category
+    "General": [
+        {"name": "Corrugated Cardboard",     "co2": 0.45, "bio": 80, "rec": 90, "weight_limit": 30},
+        {"name": "Biodeg. Foam",             "co2": 0.60, "bio": 85, "rec": 50, "weight_limit": 20},
+        {"name": "Kraft Paper Wrap",         "co2": 0.20, "bio": 95, "rec": 85, "weight_limit": 10},
+        {"name": "Mushroom Packaging",       "co2": 0.10, "bio": 99, "rec": 60, "weight_limit": 8},
+        {"name": "PLA Film",                 "co2": 0.40, "bio": 90, "rec": 50, "weight_limit": 5},
+        {"name": "rPET Poly Mailer",         "co2": 0.50, "bio": 20, "rec": 75, "weight_limit": 4},
+        {"name": "Honeycomb Cardboard",      "co2": 0.30, "bio": 88, "rec": 92, "weight_limit": 25},
+    ],
+}
 
 
-def _encode_level(level: str) -> int:
-    return {"low": 1, "medium": 2, "high": 3}.get(level.lower(), 2)
+def _get_materials_for_category(category: str) -> List[Dict]:
+    """Return the material pool for the given category, fallback to General."""
+    # Normalize: try direct match, then fuzzy
+    if category in CATEGORY_MATERIALS:
+        return CATEGORY_MATERIALS[category]
+    for key in CATEGORY_MATERIALS:
+        if key.lower() in category.lower() or category.lower() in key.lower():
+            return CATEGORY_MATERIALS[key]
+    return CATEGORY_MATERIALS["General"]
 
 
-def _build_features(query, material):
-    budget_usd = (query.budget_inr / USD_TO_INR) if query.budget_inr else 5.0
-    return np.array([
-        query.product_weight_kg,
-        _encode_level(query.fragility_level),
-        _encode_level(query.moisture_sensitivity),
-        query.shipping_distance_km,
-        budget_usd,
-        material["base_cost_usd"],
-        material["co2"],
-        material["bio"],
-        material["rec"],
-    ]).reshape(1, -1)
+def _distance_factor(km: float) -> float:
+    """Higher distance = higher co2 multiplier."""
+    if km <= 100:
+        return 1.0
+    elif km <= 500:
+        return 1.15
+    elif km <= 1000:
+        return 1.30
+    elif km <= 3000:
+        return 1.50
+    else:
+        return 1.75
 
 
-def _predict_cost_inr(features, material):
-    # REPLACE with: return float(rf_model.predict(features)[0]) * USD_TO_INR
-    base_usd = material["base_cost_usd"]
-    cost_usd = round(base_usd * (1 + features[0][0] * 0.05 + features[0][3] * 0.0001), 2)
-    return round(cost_usd * USD_TO_INR, 2)
+def _weight_factor(weight_kg: float, weight_limit: float) -> float:
+    """Penalise materials that are borderline for the product weight."""
+    ratio = weight_kg / max(weight_limit, 0.1)
+    if ratio > 1.0:
+        return 0.0   # cannot support this weight
+    elif ratio > 0.8:
+        return 0.6
+    elif ratio > 0.5:
+        return 0.85
+    return 1.0
 
 
-def _predict_co2(features, material):
-    # REPLACE with: return float(xgb_model.predict(features)[0])
-    base = material["co2"]
-    return round(base * (1 + features[0][3] * 0.0002), 3)
+def _score_material(material: Dict, query: QueryInput, dist_factor: float) -> float:
+    """Compute a 0-100 suitability score for a material."""
+    wf = _weight_factor(query.product_weight_kg, material["weight_limit"])
+    if wf == 0.0:
+        return 0.0
 
+    co2_adjusted = material["co2"] * dist_factor
+    # Normalise co2: assume max realistic = 2.0 kg → lower is better
+    co2_norm = max(0, 1 - co2_adjusted / 2.0)
 
-def _suitability_score(query, material, cost_inr, co2):
-    weights = {
-        "eco":      {"bio": 0.35, "rec": 0.30, "co2": 0.25, "cost": 0.10},
-        "cost":     {"bio": 0.10, "rec": 0.10, "co2": 0.15, "cost": 0.65},
-        "balanced": {"bio": 0.25, "rec": 0.25, "co2": 0.25, "cost": 0.25},
-    }.get(query.priority.lower(), {"bio": 0.25, "rec": 0.25, "co2": 0.25, "cost": 0.25})
+    bio_norm = material["bio"] / 100
+    rec_norm = material["rec"] / 100
 
-    bio_norm  = material["bio"] / 100
-    rec_norm  = material["rec"] / 100
-    co2_norm  = 1 - min(co2 / 2.0, 1)
-    cost_norm = 1 - min(cost_inr / 500.0, 1)   # max ₹500 as ceiling
+    if query.priority == "eco":
+        weights = {"co2": 0.45, "bio": 0.35, "rec": 0.20}
+    elif query.priority == "cost":
+        # cost-priority: still eco metrics but favour recyclability (proxy for mainstream)
+        weights = {"co2": 0.20, "bio": 0.20, "rec": 0.60}
+    else:  # balanced
+        weights = {"co2": 0.35, "bio": 0.35, "rec": 0.30}
 
-    score = (
-        weights["bio"]  * bio_norm  +
-        weights["rec"]  * rec_norm  +
-        weights["co2"]  * co2_norm  +
-        weights["cost"] * cost_norm
+    base = (
+        weights["co2"] * co2_norm +
+        weights["bio"] * bio_norm +
+        weights["rec"] * rec_norm
     ) * 100
-    return round(score, 2)
+
+    return round(base * wf, 2)
 
 
-def _reasoning(query, mat, cost_inr, co2):
-    parts = []
-    if mat["bio"] >= 90:
-        parts.append("highly biodegradable ({}%)".format(mat["bio"]))
-    if mat["rec"] >= 90:
-        parts.append("excellent recyclability ({}%)".format(mat["rec"]))
-    if co2 < 0.6:
-        parts.append("low CO2 footprint ({} kg)".format(co2))
-    if cost_inr < 166:
-        parts.append("cost-efficient (Rs.{}/unit)".format(cost_inr))
-    if query.fragility_level == "high" and "Corrugated" in mat["material_type"]:
-        parts.append("strong structural protection for fragile items")
-    if query.moisture_sensitivity == "high" and "Film" in mat["material_type"]:
-        parts.append("moisture-resistant barrier for sensitive products")
-    return "Best choice because: " + (", ".join(parts) if parts else "good overall balance") + "."
+def _build_reasoning(material: Dict, query: QueryInput, score: float, rank: int) -> str:
+    dist_factor = _distance_factor(query.shipping_distance_km)
+    co2_adj = round(material["co2"] * dist_factor, 3)
+    wf = _weight_factor(query.product_weight_kg, material["weight_limit"])
 
+    lines = []
+    if rank == 1:
+        lines.append(f"Top pick for {query.product_category} products.")
+    bio = material["bio"]
+    rec = material["rec"]
+    if bio >= 90:
+        lines.append("Highly biodegradable — excellent end-of-life profile.")
+    elif bio >= 70:
+        lines.append("Good biodegradability score.")
+    else:
+        lines.append("Lower biodegradability — consider end-of-life disposal plan.")
 
-def get_recommendation(query: QueryInput) -> RecommendationPayload:
-    scored = []
-    for mat in MATERIALS:
-        features  = _build_features(query, mat)
-        cost_inr  = _predict_cost_inr(features, mat)
-        co2       = _predict_co2(features, mat)
-        score     = _suitability_score(query, mat, cost_inr, co2)
-        scored.append({
-            "material_type":          mat["material_type"],
-            "cost_per_unit_inr":      cost_inr,
-            "co2_score":              co2,
-            "biodegradability_score": mat["bio"],
-            "recyclability_pct":      mat["rec"],
-            "suitability_score":      score,
-            "reasoning":              _reasoning(query, mat, cost_inr, co2),
-        })
+    if rec >= 85:
+        lines.append(f"Widely recyclable ({rec}%).")
+    elif rec >= 60:
+        lines.append(f"Moderately recyclable ({rec}%).")
+    else:
+        lines.append(f"Limited recyclability ({rec}%) — offset by other eco benefits.")
 
-    scored.sort(key=lambda x: x["suitability_score"], reverse=True)
-    recommendations = [RecommendationOut(rank=i + 1, **r) for i, r in enumerate(scored[:5])]
-
-    top = recommendations[0]
-    summary = (
-        "For your {} product '{}', ".format(query.product_category, query.product_name) +
-        "{} is the top recommendation with a suitability score of ".format(top.material_type) +
-        "{}/100, cost of Rs.{}/unit, CO2 footprint of {} kg, ".format(top.suitability_score, top.cost_per_unit_inr, top.co2_score) +
-        "and biodegradability of {}%.".format(top.biodegradability_score)
+    lines.append(
+        f"Estimated CO₂ footprint {co2_adj} kg for {query.shipping_distance_km} km shipping."
     )
+    if wf < 1.0:
+        lines.append(
+            f"Note: product weight ({query.product_weight_kg} kg) is near this material's limit — "
+            "verify structural integrity."
+        )
+    lines.append(f"Suitability score: {score}/100 under '{query.priority}' optimisation.")
+    return " ".join(lines)
 
-    return RecommendationPayload(recommendations=recommendations, summary=summary)
+
+def get_recommendations(query: QueryInput) -> List[RecommendationItem]:
+    """Return top-5 ranked RecommendationItems for the given query."""
+    materials = _get_materials_for_category(query.product_category)
+    dist_factor = _distance_factor(query.shipping_distance_km)
+
+    scored = []
+    for mat in materials:
+        score = _score_material(mat, query, dist_factor)
+        if score > 0:
+            scored.append((score, mat))
+
+    # Sort descending by score
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top5 = scored[:5]
+
+    results = []
+    for rank, (score, mat) in enumerate(top5, start=1):
+        co2_adj = round(mat["co2"] * dist_factor, 3)
+        reasoning = _build_reasoning(mat, query, score, rank)
+        results.append(RecommendationItem(
+            rank=rank,
+            material_type=mat["name"],
+            co2_score=co2_adj,
+            biodegradability_score=mat["bio"],
+            recyclability_pct=mat["rec"],
+            suitability_score=score,
+            reasoning=reasoning,
+        ))
+    return results
